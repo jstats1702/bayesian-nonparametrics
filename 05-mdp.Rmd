@@ -1,0 +1,337 @@
+---
+title: "Mixtures of Dirichlet processes"
+author: 
+- Juan Sosa PhD
+- Email   jcsosam@unal.edu.co
+- GitHub  https://github.com/jstats1702 
+date: ""
+output:
+  html_document:
+    highlight: default
+    number_sections: yes
+    theme: cosmo
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Mixtures of Dirichlet processes
+
+A random distribution \( G \) follows a **mixture of Dirichlet processes** (MDP) if it originates from a Dirichlet process (DP), but now depends conditionally on random parameters of the DP, such as a random concentration parameter \( \alpha \) and/or a random base distribution \( G_0 \).
+
+The MDP structure extends the DP to a **hierarchical framework**, where \( G \mid \alpha, \theta \sim \textsf{DP}(\alpha, G_0(\cdot \mid \boldsymbol{\theta})) \). In this structure, parametric priors are introduced for the precision parameter \( \alpha \) and/or the parameters of the centering distribution \( \boldsymbol{\theta} \).
+
+**Mixtures of Dirichlet processes are different from Dirichlet process mixture models!**
+
+
+# MDP prior distribution with Poisson centering distribution
+
+Consider a discrete distribution with support on \( \{0, 1, \dots\} \), representing observed count responses, with data given by \( \mathbf{y} = (y_1,\ldots,y_n) \).
+
+Consider the model
+$$
+\begin{align*}
+y_i \mid F &\overset{\text{iid}}{\sim} F \\
+F \mid \alpha, \lambda &\sim \textsf{DP}(\alpha, F_0=\text{Poisson}(\lambda))\\
+\alpha  &\sim p(\alpha) \\
+\lambda &\sim p(\lambda)
+\end{align*}
+$$
+where \(\alpha\) and \(\lambda\) follow independent priors.
+
+
+## Posterior distribution
+
+Using results from Ferguson (1973) and Antoniak (1974), we can derive the joint posterior distribution for the distribution \( F \) and the parameters \( (\alpha, \lambda) \) by leveraging the properties of the DP. 
+Specifically, we can develop a DP model for the conditional posterior distribution of \( F \), given the parameters \( (\alpha, \lambda) \). This setup allows us to separate the inference for \( F \) from that of \( (\alpha, \lambda) \) through their marginal posterior distribution. By marginalizing over \( (\alpha, \lambda) \), we obtain a posterior for \( F \) that follows the structure of a MDP. 
+
+In this way, the **posterior distribution** is given by
+$$
+\begin{align*}
+p(F, \alpha, \lambda \mid \mathbf{y}) &= p(F \mid \alpha, \lambda, \mathbf{y}) \, p(\alpha, \lambda \mid \mathbf{y}) \\
+&\propto p(F \mid \alpha, \lambda, \mathbf{y}) \, p(\mathbf{y}\mid \alpha, \lambda) \, p(\alpha) \, p(\lambda)\,,
+\end{align*}
+$$
+where $p(F \mid \alpha, \lambda, \mathbf{y}) = \textsf{DP}(\alpha + n, \tilde{F})$ with
+\[
+\tilde{F}(y) = \frac{\alpha}{\alpha + n} F_0(y \mid \lambda) + \frac{n}{\alpha + n} F_n(y),
+\]
+and $F_n(y) = \frac{1}{n}\sum_{i=1}^n \mathbb{1}_{[y_i,\infty)}(y)$ is the empirical distribution function of the data.
+
+Furthermore, the **marginal likelihood**, which is specific to DP priors with a discrete base distribution \( F_0 \), is given by
+\[
+p(\mathbf{y}\mid\alpha, \lambda) \propto \frac{\alpha^{n^*}}{\alpha^{(n)}} \prod_{j=1}^{n^*} f_0(y_j^* \mid \lambda) \, \big(\alpha f_0(y_j^* \mid \lambda) + 1 \big)^{n_j - 1}\,,
+\]
+or equivalently,
+$$
+\log p(\mathbf{y}\mid\alpha, \lambda) = n^* \log \alpha - \log \alpha^{(n)} +\sum_{j=1}^{n^*} \left[ \log f_0(y_j^* \mid \lambda) + (n_j - 1)\log\big(\alpha f_0(y_j^* \mid \lambda) + 1 \big)\right] + \text{c}\,,
+$$
+where:
+
+- \( f_0(y \mid \lambda) \) is the probability mass function of \( F_0(y \mid \lambda) \),
+- \( n^* \) is the number of distinct values in $\mathbf{y}$,
+- \( \{y_j^* : j = 1, \dots, n^*\} \) are the distinct values in $\mathbf{y}$,
+- \( n_j = |\{i : y_i = y_j^*\}| \) is the count of occurrences of each distinct value \( y_j^* \),
+- \( z^{(m)} = z (z + 1) \cdots (z + m - 1) \), for $m > 0$, with $z^{(0)} = 1$, and
+- $\text{c}$ is a constant.
+
+
+## Posterior simulation
+
+**Posterior Simulation** from \( p(F, \alpha, \lambda \mid \mathbf{y}) \) can be done through:
+
+1. Markov Chain Monte Carlo (MCMC) Sampling from $p(\alpha, \lambda \mid \text{data})$.
+2. Simulate \( F \) from \( p(F \mid \alpha, \lambda, \text{data}) \), using any of the DP representations.
+
+Specifically, given $\alpha^b,\lambda^b,F^b$, for $b=0,\ldots,B-1$, sample $\alpha^{b+1},\lambda^{b+1},F^{b+1}$ from \( p(F, \alpha, \lambda \mid \mathbf{y}) \) as follows:
+
+1. Sample $\alpha^{b+1}$  from $p(\alpha\mid\lambda^b,\mathbf{y})$ (Metropolis step).
+2. Sample $\lambda^{b+1}$ from $p(\lambda\mid\alpha^{b+1},\mathbf{y})$ (Metropolis step).
+3. Sample $F^{b+1}$ from $p(F\mid\alpha^{b+1},\lambda^{b+1},\mathbf{y})$ (any DP repesentation).
+
+
+## Posterior inference
+
+The **posterior probability** \(\Pr(Y = y \mid \text{data})\) can be obtained by integrating (averaging) over all possible values of \(F\), weighted by the posterior distribution of \(F\) given the data. Thus, for $y = 0,1,\ldots$, 
+$$
+\begin{align*}
+\Pr(Y = y \mid \text{data}) &=  \int p(Y = y, F \mid \text{data}) \, \textsf{d}F \\
+&= \int \Pr(Y = y \mid F) \, p(F \mid \text{data}) \, \textsf{d}F
+\end{align*}
+$$
+Therefore, it follows that
+\[
+\Pr(Y = y \mid \text{data}) = \textsf{E}\left(\Pr(Y = y \mid F) \mid \text{data}\right)\,,\quad \text{for } y = 0,1,\ldots .
+\]
+
+Then, for \( y \geq 1 \),
+\[
+\textsf{E}\left[\Pr(Y = y \mid F) \mid \text{data}\right] = \textsf{E}\left[F(y) - F(y - 1) \mid \text{data}\right]\,,
+\]
+and for \( y = 0 \),
+\[
+\textsf{E}\left[\Pr(Y = 0 \mid F) \mid \text{data}\right] = \textsf{E}\left[F(1) - \Pr(Y = 1 \mid F) \mid \text{data}\right] = \textsf{E}\left[F(1) \mid \text{data}\right] - \Pr(Y = 1 \mid \text{data})\,.
+\]
+
+
+## Example
+
+This example models **Poisson-distributed observations** with \(\lambda = 3\), using the MDP described in Section 2, where \(\alpha \sim \textsf{Gamma}(a_\alpha, b_\alpha)\) and \(\lambda \sim \textsf{Gamma}(a_\lambda, b_\lambda)\), with \(a_\alpha = b_\alpha = a_\lambda = b_\lambda = 1\). We implement an MCMC algorithm to estimate the posterior distributions of \(F\), \(\alpha\), and \(\lambda\), as well as the predictive distribution of a dataset.
+
+The following code implements an MCMC algorithm to estimate the posterior distributions of \(\alpha\), \(\lambda\), and \(F\). The `sample_alpha` and `sample_lambda` functions use Metropolis-Hastings sampling to propose new values for \(\alpha\) and \(\lambda\) at each MCMC step, with adaptive tuning during the burn-in phase to improve convergence. Additionally, the `sample_F` function generates new data points based on a mixture of prior information, using a Poisson distribution with rate parameter \(\lambda\) as the baseline distribution and incorporating observed data. The main `MCMC` function put together this process, storing posterior samples of \(\alpha\), \(\lambda\), and \(F\). 
+
+The `posterior_predictive` function then calculates predictive probabilities for event counts by averaging empirical cumulative distribution functions (ECDFs) from `F_chain`, estimating \( P(Y = y | \text{data}) \) for different counts. Finally, the code plots point-wise credible intervals for the empirical CDF estimates, comparing them with the theoretical Poisson CDF for \(\lambda = 3\), thereby assessing the predictive accuracy of the Bayesian model for Poisson data.
+
+
+```{r}
+log_p_alpha <- function(y, unique_y, n_j_values, alpha, lambda, a_alpha, b_alpha) {
+     n_star <- length(unique_y)
+     n <- length(y)
+     out <- n_star * log(alpha) - sum(log(alpha:(alpha + n - 1))) + dgamma(alpha, shape = a_alpha, rate = b_alpha, log = TRUE)
+     for (j in seq_along(unique_y)) {
+          f0_val <- dpois(unique_y[j], lambda)
+          out <- out + log(f0_val) + (n_j_values[j] - 1) * log(alpha * f0_val + 1)
+     }
+     return(out)
+}
+```
+
+
+```{r}
+log_p_lambda <- function(y, unique_y, n_j_values, alpha, lambda, a_lambda, b_lambda) {
+     n_star <- length(unique_y)
+     n <- length(y)
+     out <- dgamma(lambda, shape = a_lambda, rate = b_lambda, log = TRUE)
+     for (j in seq_along(unique_y)) {
+          f0_val <- dpois(unique_y[j], lambda)
+          out <- out + log(f0_val) + (n_j_values[j] - 1) * log(alpha * f0_val + 1)
+     }
+     return(out)
+}
+```
+
+
+```{r}
+sample_alpha <- function(y, unique_y, n_j_values, alpha, lambda, a_alpha, b_alpha, proposal_sd, accept_count) {
+     log_alpha <- log(alpha)
+     alpha_p <- exp(log_alpha + rnorm(1, mean = 0, sd = proposal_sd))
+     logr <- (log_p_alpha(y, unique_y, n_j_values, alpha_p, lambda, a_alpha, b_alpha) + log(alpha_p)) - (log_p_alpha(y, unique_y, n_j_values, alpha, lambda, a_alpha, b_alpha) + log_alpha)
+     if (log(runif(1)) < logr) {
+          alpha <- alpha_p
+          accept_count <- accept_count + 1
+     }
+     return(list(alpha = alpha, accept_count = accept_count))
+}
+```
+
+
+```{r}
+sample_lambda <- function(y, unique_y, n_j_values, alpha, lambda, a_lambda, b_lambda, proposal_sd, accept_count) {
+     log_lambda <- log(lambda)
+     lambda_p <- exp(log_lambda + rnorm(1, mean = 0, sd = proposal_sd))
+     logr <- (log_p_lambda(y, unique_y, n_j_values, alpha, lambda_p, a_lambda, b_lambda) + log(lambda_p)) - (log_p_lambda(y, unique_y, n_j_values, alpha, lambda, a_lambda, b_lambda) + log_lambda)
+     if (log(runif(1)) < logr) {
+          lambda <- lambda_p
+          accept_count <- accept_count + 1
+     }
+     return(list(lambda = lambda, accept_count = accept_count))
+}
+```
+
+
+```{r}
+sample_F <- function(y, alpha, lambda) {
+     sample_size <- 100
+     n <- length(y)
+     alpha_star <- alpha + n
+     weights_base <- alpha / alpha_star
+     weights_empirical <- n / alpha_star
+     out <- numeric(sample_size)
+     for (i in 1:sample_size) {
+          if (runif(1) < weights_base) {
+               out[i] <- rpois(1, lambda)
+          } else {
+               out[i] <- sample(y, 1)
+          }
+     }
+     return(out)
+}
+```
+
+
+```{r}
+MCMC <- function (y, a_alpha, b_alpha, a_lambda, b_lambda, n_sim, n_skip, n_burn) {
+     # settings 
+     target_accept_rate <- 0.234
+     gamma <- 0.1
+     # data
+     unique_y <- unique(y)
+     n_j_values <- as.numeric(table(y))
+     # chain
+     B <- n_sim*n_skip + n_burn
+     i <- 1
+     proposal_sd_alpha  <- 1
+     proposal_sd_lambda <- 1
+     accept_count_alpha  <- 0
+     accept_count_lambda <- 0
+     alpha_chain  <- NULL
+     lambda_chain <- NULL
+     F_chain      <- NULL
+     alpha  <- rgamma(n = 1, shape = a_alpha,  rate = b_alpha )
+     lambda <- rgamma(n = 1, shape = a_lambda, rate = b_lambda) 
+     for (b in 1:B) {
+          # sample alpha
+          tmp <- sample_alpha (y, unique_y, n_j_values, alpha, lambda, a_alpha, b_alpha, proposal_sd_alpha, accept_count_alpha)
+          alpha <- tmp$alpha 
+          accept_count_alpha <- tmp$accept_count
+          # sample lambda
+          tmp <- sample_lambda(y, unique_y, n_j_values, alpha, lambda, a_lambda, b_lambda, proposal_sd_lambda, accept_count_lambda)
+          lambda <- tmp$lambda 
+          accept_count_lambda <- tmp$accept_count
+          # adapt
+          if (b <= n_burn) {
+               proposal_sd_alpha  <- proposal_sd_alpha *exp(gamma*log(1 + (accept_count_alpha /b - target_accept_rate)))
+               proposal_sd_lambda <- proposal_sd_lambda*exp(gamma*log(1 + (accept_count_lambda/b - target_accept_rate)))
+          }
+          # store
+          if ((b > n_burn) & (b%%n_skip == 0)) {
+              alpha_chain [i] <- alpha
+              lambda_chain[i] <- lambda
+              F_chain <- rbind(F_chain, sample_F(y, alpha, lambda))
+              i <- i+1
+          }
+          # progress
+          #percent_complete <- 100*b/B 
+          #if ((percent_complete%%10 == 0) && percent_complete > 0)
+          #     cat(sprintf("Progress: %d%% complete\n", percent_complete))
+     }
+     list(F_chain = F_chain, alpha_chain = alpha_chain, lambda_chain = lambda_chain)
+}
+```
+
+
+```{r}
+posterior_predictive <- function(y_max, F_chain) {
+     B <- nrow(F_chain)
+     # P( Y = y | data), for y >= 1
+     out <- numeric(y_max)
+     for (y in 1:y_max) {
+          tmp <- 0
+          for (b in 1:B) {
+               Fb <- ecdf(F_chain[b,])
+               tmp <- tmp + (Fb(y) - Fb(y-1))/B
+          }
+          out[y] <- tmp
+     }
+     # P( Y = 0 | data) 
+     tmp <- 0
+     for (b in 1:B)
+          tmp <- tmp + ecdf(F_chain[b,])(1)/B
+     out <- c(tmp - out[1], out)
+     # return
+     out
+}
+```
+
+
+```{r}
+# data
+set.seed(42)
+y <- rpois(n = 100, lambda = 3)
+```
+
+
+```{r}
+# MCMC
+samples <- MCMC(y, a_alpha = 1, b_alpha = 1, a_lambda = 1, b_lambda = 1, n_sim = 10000, n_skip = 10, n_burn = 10000)
+```
+
+
+```{r}
+# posterior predictive
+y_max <- 10
+pp <- posterior_predictive(y_max, samples$F_chain)
+```
+
+
+```{r}
+# estimation
+B <- nrow(samples$F_chain)
+out <- NULL
+for (y in 0:y_max) {
+     tmp <- NULL
+     for (b in 1:B) {
+          Fb <- ecdf(samples$F_chain[b,])
+          tmp[b] <- Fb(y)
+     }
+     out <- cbind(out, tmp)
+}
+ic <- apply(X = out, MARGIN = 2, FUN = quantile, probs = c(0.025,0.5,0.975))
+```
+
+
+```{r, fig.align='center'}
+# viz
+plot(0:y_max, ppois(0:y_max, 3), type = "b", xlab = "y", ylab = "F(y)", lwd = 2)
+lines(0:y_max, ic[1,], type = "b", col = 4)
+lines(0:y_max, ic[2,], type = "b", col = 2)
+lines(0:y_max, ic[3,], type = "b", col = 4)
+legend("bottomright", legend = c("True cdf", "Estimated cdf", "95% CI"), col = c(1,2,4), fill = c(1,2,4), border = c(1,2,4), bty = "n")
+```
+
+
+# References
+
+- Gershman, S. J., & Blei, D. M. (2012). **A tutorial on Bayesian nonparametric models**. Journal of Mathematical Psychology, 56(1), 1-12.
+- Ghosal, S., & van der Vaart, A. W. (2017). **Fundamentals of nonparametric Bayesian inference** (Vol. 44). Cambridge University Press.
+- Hanson, T. E., Branscum, A. J., & Johnson, W. O. (2005). **Bayesian nonparametric modeling and data analysis: An introduction**. Handbook of Statistics, 25, 245-278.
+- Jara, A. (2017). **Theory and computations for the Dirichlet process and related models: An overview**. International Journal of Approximate Reasoning, 81, 128-146.
+- Jara, A., Hanson, T. E., Quintana, F. A., Müller, P., & Rosner, G. L. (2011). **DPpackage: Bayesian semi-and nonparametric modeling in R**. Journal of Statistical Software, 40(5), 1.
+- MacEachern, S. N. (2016). **Nonparametric Bayesian methods: A gentle introduction and overview**. Communications for Statistical Applications and Methods, 23(6), 445-466.
+- Müller, P., & Mitra, R. (2013). **Bayesian nonparametric inference–why and how**. Bayesian Analysis (Online), 8(2).
+- Müller, P., Quintana, F. A., Jara, A., & Hanson, T. (2015). **Bayesian nonparametric data analysis** (Vol. 1). New York: Springer.
+- Müeller, P., Quintana, F. A., & Page, G. (2018). **Nonparametric Bayesian inference in applications**. Statistical Methods & Applications, 27, 175-206.
+- Rodriguez, A., & Müller, P. (2013). **Nonparametric Bayesian inference**. In NSF-CBMS Regional Conference Series in Probability and Statistics (Vol. 9). Institute of Mathematical Statistics.
+

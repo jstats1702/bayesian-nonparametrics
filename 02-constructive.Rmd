@@ -1,0 +1,133 @@
+---
+title: "Constructive definition of the Dirichlet Process"
+author: 
+- Juan Sosa PhD
+- Email   jcsosam@unal.edu.co
+- GitHub  https://github.com/jstats1702 
+date: ""
+output:
+  html_document:
+    highlight: default
+    number_sections: yes
+    theme: cosmo
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Constructive definition
+
+Consider a Dirichlet Process (DP) with *concentration parameter* $\alpha$ and *baseline distribution* $G_0$.
+
+Let $z_1,z_2,\ldots$ and $\vartheta_1,\vartheta_2.\ldots$ are independent sequences of independent and identically distributed (i.i.d.) random variables such that
+$$
+z_r\sim\textsf{Beta}(1,\alpha)\,,\quad r=1,2,\ldots
+\qquad\text{and}\qquad
+\vartheta_\ell\sim G_0\,,\quad \ell=1,2,\ldots
+$$
+
+According to the **constructive definition** of the DP, a realization $G$ from $\textsf{DP}(\alpha,G_0)$ is given by
+$$
+G(\cdot) = \sum_{\ell=1}^\infty \omega_\ell\,\delta_{\vartheta_\ell}(\cdot)
+$$
+where:
+
+- $\omega_1,\omega_2,\ldots$ are such that $\omega_1 = z_1$ and $\omega_\ell = z_\ell\prod_{r=1}^{\ell-1}(1-z_r)$, for $\ell=2,3,\ldots$, which is known as **stick-breaking process**.
+- $\delta_a(\cdot)$ is the distribution function of a point mass at $a$.
+
+
+# Stick-breaking process
+
+It stick-breaking process provides a way to understand the infinite-dimensional nature of the DP, by generating a **sequence of weights** $\omega_1,\omega_2,\ldots$ of a discrete probability distribution.
+
+- Start with a stick of length 1 representing the total probability to be distributed among the $\vartheta_1,\vartheta_2,\ldots$
+
+- $z_1$ is the portion of the original stick assigned to $\vartheta_1$, so that $\omega_1 = z_1$.
+
+     The remaining part of the stick has length $1-z_1$.
+     
+- $z_2$ is the portion of the remaining stick assigned to $\vartheta_2$, so that $\omega_2 = z_2(1-z_1)$. 
+          
+     The remaining part of the stick has length $(1-z_1)(1-z_2)$.
+     
+- Continue breaking.
+
+Under this setup, we say that $\omega_1,\omega_2,\ldots\textsf{SB}(\alpha)$. 
+
+It can be shown that $\sum_{\ell=1}^\infty \omega_\ell = 1$.
+
+```{r, eval = TRUE, echo=FALSE, out.width="70%", fig.pos = 'H', fig.align = 'center'}
+knitr::include_graphics("sbp.png")
+```
+
+
+# Countable mixtures of point masses
+
+The DP generates distributions that can be represented as **countable mixtures of point masses**.
+
+As a matter of fact, **any distribution** on $\mathbb{R}^d$ can be approximated arbitrarily well using a countable mixture of point masses.
+
+The constructive definition points out to the fact that the DP generates discrete distributions.
+
+
+# Simulation
+
+The DP constructive definition yields another method to simulate from the DP up to a truncation approximation:
+$$
+G(\cdot) \approx \sum_{\ell=1}^J p_\ell\,\delta_{\vartheta_\ell}(\cdot)\,,
+$$
+where $p_\ell = \omega_\ell$, for $\ell=1,\ldots,J$, and $p_J = 1 - \sum_{\ell=1}^{J-1} p_\ell$.
+
+It can be shown that
+$$
+\textsf{E}\left( \sum_{\ell=1}^{J} \omega_\ell\right) = 1 - \left( \frac{\alpha}{\alpha+1} \right)^J\,.
+$$
+Thus, $J$ can be chosen such that $(\alpha/(\alpha+1))^J=\epsilon$, for small $\epsilon$, i.e., $J=\log(\epsilon)/\log(\alpha/(\alpha+1))$.
+
+The following correspond to a realization from a $\textsf{DP}(\alpha, G_0$), for $\alpha= 25$ and $G_0 = \textsf{N}(0,1)$. The solid black line corresponds to $G_0$, while the blue line represents the corresponding realization.
+
+In the left panel, the spiked lines are located at 1000 draws from $G_0$ with heights given by the (truncated) stick-breaking weights. These spikes are then summed up to generate a sample path.
+
+```{r, fig.height=3.5, fig.width=7, fig.align='center'}
+# simulation of several G such that G ~ DP(alpha = 25, G_0 = N(0,1))
+# using the constructive definition of the DP
+alpha <- 25
+eps <- 1e-6
+J <- round(log(eps)/log(alpha/(alpha+1)))
+G0 <- function(x) pnorm(x)
+set.seed(1)
+vartheta <- rnorm(n = J)
+z <- rbeta(n = J, shape1 = 1, shape2 = alpha)
+omega <- NULL
+omega[1] <- z[1]
+for (j in 2:(J-1))
+  omega[j] <- z[j]*prod(1 - z[1:(j-1)])
+omega[J] <- 1 - sum(omega[1:(J-1)]) 
+# plot
+par(mfrow = c(1,2), mar = c(3,3,1.4,1.4), mgp = c(1.75,0.75,0))
+# panel 1: atoms
+plot(x = vartheta, y = omega, type = "h", xlim = c(-3,3), xlab = "x", ylab = expression(omega), col = 4)
+# panel 2: G ~ DP(alpha = 25, G_0 = N(0,1))
+x <- seq(from = -3, to = 3, len = 1000)
+G <- NULL
+for (j in 1:length(x))
+  G[j] <- sum(omega[vartheta <= x[j]])
+plot(x = x, y = G, type = "l", xlim = c(-3,3), col = 4)
+curve(expr = G0(x), from = -3, to = 3, n = 1000, lwd = 2, add = TRUE)
+```
+
+
+# References
+
+- Gershman, S. J., & Blei, D. M. (2012). **A tutorial on Bayesian nonparametric models**. Journal of Mathematical Psychology, 56(1), 1-12.
+- Ghosal, S., & van der Vaart, A. W. (2017). **Fundamentals of nonparametric Bayesian inference** (Vol. 44). Cambridge University Press.
+- Hanson, T. E., Branscum, A. J., & Johnson, W. O. (2005). **Bayesian nonparametric modeling and data analysis: An introduction**. Handbook of Statistics, 25, 245-278.
+- Jara, A. (2017). **Theory and computations for the Dirichlet process and related models: An overview**. International Journal of Approximate Reasoning, 81, 128-146.
+- Jara, A., Hanson, T. E., Quintana, F. A., Müller, P., & Rosner, G. L. (2011). **DPpackage: Bayesian semi-and nonparametric modeling in R**. Journal of Statistical Software, 40(5), 1.
+- MacEachern, S. N. (2016). **Nonparametric Bayesian methods: A gentle introduction and overview**. Communications for Statistical Applications and Methods, 23(6), 445-466.
+- Müller, P., & Mitra, R. (2013). **Bayesian nonparametric inference–why and how**. Bayesian Analysis (Online), 8(2).
+- Müller, P., Quintana, F. A., Jara, A., & Hanson, T. (2015). **Bayesian nonparametric data analysis** (Vol. 1). New York: Springer.
+- Müeller, P., Quintana, F. A., & Page, G. (2018). **Nonparametric Bayesian inference in applications**. Statistical Methods & Applications, 27, 175-206.
+- Rodriguez, A., & Müller, P. (2013). **Nonparametric Bayesian inference**. In NSF-CBMS Regional Conference Series in Probability and Statistics (Vol. 9). Institute of Mathematical Statistics.
+

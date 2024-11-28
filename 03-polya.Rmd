@@ -1,0 +1,141 @@
+---
+title: "Pólya urn characterization of the Dirichlet Process"
+author: 
+- Juan Sosa PhD
+- Email   jcsosam@unal.edu.co
+- GitHub  https://github.com/jstats1702 
+date: ""
+output:
+  html_document:
+    highlight: default
+    number_sections: yes
+    theme: cosmo
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Pólya urn scheme
+
+The **Pólya urn scheme** can be seen as a discrete-time analog to the Dirichlet process, providing an intuitive way to understand how the **Dirichlet process** (DP) generates samples.
+
+Consider a precision parameter $\alpha$ and a baseline distribution $G_0$:
+
+- Initialization: Start with an empty urn.
+
+- Process: 
+
+     1. Draw a value from $G_0$ and place it in the urn.
+     2. For each subsequent draw, select a new value from $G_0$ with a probability proportional to $\alpha$, or an existing value from the urn with a probability proportional to the number of times that value has already been drawn.
+     3. Add the selected value to the urn.
+
+Formaly, consider the measurable space $(\mathbb{R},\mathcal{B})$, where $\mathcal{B}$ is the Borel $\sigma$-algebra.
+
+**[Definition]** The sequence of random variables $X_1,X_2,\ldots$ is a **Pólya sequence** with parameters $\alpha$ (a positive scalar) and $G_0$ (a probability distribution) if for any $B\in\mathcal{B}$ it follows that $\textsf{P}(X_1\in B) = G_0(B)$ and
+$$
+\textsf{P}(X_{n+1}\in B\mid X_1,\ldots,X_n) = \frac{\alpha}{\alpha+n}G_0(B) + \frac{1}{\alpha + n}\sum_{i=1}^n\delta_{X_i}(B)\,,
+$$
+where $\delta_{X_i}(B) = 1$ if $X_i\in B$ and $\delta_{X_i}(B) = 0$ if $X_i\notin B$, for $i=1,\ldots,n$.
+
+If $X_1,X_2,\ldots$ is a Pólya sequence with parameters $\alpha$ and $G_0$, then:
+
+- $\frac{\alpha}{\alpha+n}G_0 + \frac{1}{\alpha + n}\sum_{i=1}^n\delta_{X_i}$ converges almost surely to a discrete distribution $G$ as $n\to\infty$.
+- $X_1,X_2,\ldots$ are independent and identically distributed (i.i.d.) according to $G$.
+- $G\sim\textsf{DP}(\alpha,G_0)$.
+
+
+# Pólya urn characterization of the DP
+
+
+If $x_i\mid G \stackrel{\text{iid}}{\sim}G$, for $i=1,\ldots,n$, with $G\sim\textsf{DP}(\alpha,G_0)$, then the **conditional distribution** of $x_i\mid x_1,\ldots,x_{i-1}$ after integrating $G$ out is given by:
+$$
+p(x_i\mid x_1,\ldots,x_{i-1}) = \frac{\alpha}{\alpha+i-1}G_0(x_i) + \frac{1}{\alpha+i-1}\sum_{j=1}^{i-1} \delta_{x_j}(x_i)\,,\qquad i=2,\ldots,n\,,
+$$
+and therefore, the **marginal distribution** of $x_1,\ldots,x_n$ is given by:
+$$
+p(x_1,\ldots,x_n) = G_0(x_1)\prod_{i=2}^n\left(\frac{\alpha}{\alpha+i-1}G_0(x_i) + \frac{1}{\alpha+i-1}\sum_{j=1}^{i-1} \delta_{x_j}(x_i) \right)\,,
+$$
+where $\delta_{x_j}(x_i) = 1$ if $x_i=x_j$ and $\delta_{x_j}(x_i) = 0$ if $x_i\neq x_j$.
+
+This means that $x_1,\ldots,x_n$ follows a **Pólya urn scheme* such that:
+
+- $x_1\sim G_0$.
+- For any $i=2,\ldots,n$, $x_i\mid x_1,\ldots,x_{i-1}$ follows a mixed distribution specifying a mass $\frac{\alpha}{\alpha+i-1}$ on $G_0$, and a mass $\frac{1}{\alpha+i-1}$ on $\delta_{x_j}$, for $j=1,\ldots,i-1$.
+
+Under this setup, we say that $x_1,\ldots,x_n\sim\textsf{PU}(\alpha,G_0)$. 
+
+### Correlation structure
+
+The $x_1,\ldots,x_n$ are **exchangeable** (and hence have the same marginals and full conditional distributions), but they are not independent.
+
+If $x_i\in\mathbb{R}$, for $i=1,\ldots,n$, then
+$$
+\textsf{Cor}(x_i,x_j) = \textsf{P}(x_i = x_j) = \frac{1}{\alpha+1}\,,\qquad i\neq j\,.
+$$
+
+
+# The Chinese restaurant process
+
+The **Chinese restaurant process** (CRP) is an analogy that helps to understand the DP.
+It is a metaphorical process used to describe the behavior of customers entering a Chinese restaurant and choosing tables.
+
+Imagine a Chinese restaurant with an infinite number of tables, where customers enter one by one and choose tables according to the following rules:
+
+- The first customer enters the restaurant and sits at the first table.
+- Each customer either joins an existing table with probability proportional to the number of people already at that table, or starts a new table with a probability proportional to a parameter $\alpha$.
+- All customers sitting in the same table share a dish.
+
+```{r, eval = TRUE, echo=FALSE, out.width="60%", fig.pos = 'H', fig.align = 'center'}
+knitr::include_graphics("crp.jpg")
+```
+
+
+### Simulation {-}
+
+```{r}
+# simulation of a CRP with alpha = 25 and n = 1000 customers
+# tab[i] corresponds to the table number of customer i
+alpha <- 25
+n <- 1000
+tab <- NULL
+tab[1] <- 1
+set.seed(1)
+for (i in 2:n) {
+  p <- c(table(tab), alpha)
+  tab[i] <- sample(x = 1:length(p), size = 1, prob = p)
+}
+```
+
+
+```{r}
+# number of customers per table (first 10 tables)
+mk <- cbind(1:length(table(tab)), table(tab))
+colnames(mk) <- c("Table","# of customers")
+print(head(mk, n = 10))
+```
+
+
+```{r}
+# number of tables per number of customers
+mt <- table(table(tab))
+mt <- cbind(as.numeric(names(mt)), mt)
+colnames(mt) <- c("# of customers", "# of tables")
+print(mt)
+```
+
+
+# References
+
+- Gershman, S. J., & Blei, D. M. (2012). **A tutorial on Bayesian nonparametric models**. Journal of Mathematical Psychology, 56(1), 1-12.
+- Ghosal, S., & van der Vaart, A. W. (2017). **Fundamentals of nonparametric Bayesian inference** (Vol. 44). Cambridge University Press.
+- Hanson, T. E., Branscum, A. J., & Johnson, W. O. (2005). **Bayesian nonparametric modeling and data analysis: An introduction**. Handbook of Statistics, 25, 245-278.
+- Jara, A. (2017). **Theory and computations for the Dirichlet process and related models: An overview**. International Journal of Approximate Reasoning, 81, 128-146.
+- Jara, A., Hanson, T. E., Quintana, F. A., Müller, P., & Rosner, G. L. (2011). **DPpackage: Bayesian semi-and nonparametric modeling in R**. Journal of Statistical Software, 40(5), 1.
+- MacEachern, S. N. (2016). **Nonparametric Bayesian methods: A gentle introduction and overview**. Communications for Statistical Applications and Methods, 23(6), 445-466.
+- Müller, P., & Mitra, R. (2013). **Bayesian nonparametric inference–why and how**. Bayesian Analysis (Online), 8(2).
+- Müller, P., Quintana, F. A., Jara, A., & Hanson, T. (2015). **Bayesian nonparametric data analysis** (Vol. 1). New York: Springer.
+- Müeller, P., Quintana, F. A., & Page, G. (2018). **Nonparametric Bayesian inference in applications**. Statistical Methods & Applications, 27, 175-206.
+- Rodriguez, A., & Müller, P. (2013). **Nonparametric Bayesian inference**. In NSF-CBMS Regional Conference Series in Probability and Statistics (Vol. 9). Institute of Mathematical Statistics.
+
